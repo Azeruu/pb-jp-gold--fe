@@ -58,7 +58,7 @@ function App() {
     try {
       const res = await axios.get(`${API_URL}/sessions`);
       // Sort sessions by date descending (newest first)
-      const sortedSessions = res.data.sort((a: Session, b: Session) => 
+      const sortedSessions = res.data.sort((a: Session, b: Session) =>
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
       setSessions(sortedSessions);
@@ -119,13 +119,16 @@ function Dashboard({ sessions, onRefresh }: { sessions: Session[], onRefresh: ()
   const { getToken } = useAuth();
   const { user } = useUser();
 
-  const totalBalance = sessions.reduce((acc, session) => {
-    const expenses = session.expenses.reduce((a, c) => a + c.amount, 0);
-    const income = session.players.reduce((a, c) => a + (c.has_paid ? c.contribution_amount : 0), 0);
-    return acc + (session.initial_cash - expenses + income);
-  }, 0);
+  const latestSession = sessions[0];
+  const latestBalance = latestSession ? (
+    latestSession.initial_cash - 
+    latestSession.expenses.reduce((a, c) => a + c.amount, 0) + 
+    latestSession.players.reduce((a, c) => a + (c.has_paid ? c.contribution_amount : 0), 0)
+  ) : 0;
 
-  const totalPlayers = sessions.reduce((acc, s) => acc + s.players.length, 0);
+  const averagePlayers = sessions.length > 0 
+    ? (sessions.reduce((acc, s) => acc + s.players.length, 0) / sessions.length).toFixed(1)
+    : 0;
 
   const handleDelete = async (id: string) => {
     if (!confirm("Apakah Anda yakin ingin menghapus laporan ini?")) return;
@@ -160,8 +163,8 @@ function Dashboard({ sessions, onRefresh }: { sessions: Session[], onRefresh: ()
               <Wallet size={24} />
             </div>
             <div>
-              <p className="stat-label">Total Saldo Kas</p>
-              <p className="stat-value">Rp {totalBalance.toLocaleString()}</p>
+              <p className="stat-label">Saldo Terkini</p>
+              <p className="stat-value">Rp {latestBalance.toLocaleString()}</p>
             </div>
           </div>
           <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -169,8 +172,8 @@ function Dashboard({ sessions, onRefresh }: { sessions: Session[], onRefresh: ()
               <Users size={24} />
             </div>
             <div>
-              <p className="stat-label">Total Kehadiran</p>
-              <p className="stat-value">{totalPlayers} Pemain</p>
+              <p className="stat-label">Rata-rata Kehadiran</p>
+              <p className="stat-value">{averagePlayers} Pemain/Sesi</p>
             </div>
           </div>
           <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -195,18 +198,18 @@ function Dashboard({ sessions, onRefresh }: { sessions: Session[], onRefresh: ()
       </div>
 
       {isAdding ? (
-        <NewSessionForm 
-          initialData={editingSession || undefined} 
-          onCancel={handleCancelForm} 
-          onSaved={() => { handleCancelForm(); onRefresh(); }} 
+        <NewSessionForm
+          initialData={editingSession || undefined}
+          onCancel={handleCancelForm}
+          onSaved={() => { handleCancelForm(); onRefresh(); }}
         />
       ) : (
         <div className="grid">
           {sessions.map((session) => (
-            <SessionCard 
-              key={session.id} 
-              session={session} 
-              onDelete={() => handleDelete(session.id)} 
+            <SessionCard
+              key={session.id}
+              session={session}
+              onDelete={() => handleDelete(session.id)}
               onEdit={() => handleEdit(session)}
             />
           ))}
@@ -246,14 +249,14 @@ function SessionCard({ session, onDelete, onEdit }: { session: Session, onDelete
         </div>
         {isOwner && (
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button 
+            <button
               onClick={onEdit}
               style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.25rem' }}
               title="Edit Sesi"
             >
               <Pencil size={18} />
             </button>
-            <button 
+            <button
               onClick={onDelete}
               style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.25rem' }}
               title="Hapus Sesi"
@@ -348,10 +351,10 @@ function NewSessionForm({ initialData, onCancel, onSaved }: { initialData?: Sess
 
   const addPlayer = () => {
     if (newPlayerName) {
-      setPlayerList([...playerList, { 
-        name: newPlayerName, 
-        contribution_amount: newPlayerAmount, 
-        has_paid: newPlayerPaid 
+      setPlayerList([...playerList, {
+        name: newPlayerName,
+        contribution_amount: newPlayerAmount,
+        has_paid: newPlayerPaid
       }]);
       setNewPlayerName("");
     }
@@ -404,12 +407,12 @@ function NewSessionForm({ initialData, onCancel, onSaved }: { initialData?: Sess
           </div>
           <div>
             <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Saldo Awal Kas (Rp)</label>
-            <input 
-              type="text" 
-              value={formatCurrency(cash)} 
-              onChange={(e) => setCash(parseCurrency(e.target.value))} 
-              required 
-              placeholder="Contoh: 50.000" 
+            <input
+              type="text"
+              value={formatCurrency(cash)}
+              onChange={(e) => setCash(parseCurrency(e.target.value))}
+              required
+              placeholder="Contoh: 50.000"
             />
           </div>
           <div>
@@ -426,11 +429,11 @@ function NewSessionForm({ initialData, onCancel, onSaved }: { initialData?: Sess
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
               <input type="text" placeholder="Nama barang (misal: Kok, Sewa Lapangan)" value={newExpName} onChange={(e) => setNewExpName(e.target.value)} />
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  placeholder="Nominal Rp" 
-                  value={formatCurrency(newExpAmount)} 
-                  onChange={(e) => setNewExpAmount(parseCurrency(e.target.value))} 
+                <input
+                  type="text"
+                  placeholder="Nominal Rp"
+                  value={formatCurrency(newExpAmount)}
+                  onChange={(e) => setNewExpAmount(parseCurrency(e.target.value))}
                 />
                 <button type="button" className="btn btn-primary" onClick={addExpense} style={{ padding: '0 1rem' }}><Plus size={20} /></button>
               </div>
@@ -457,14 +460,14 @@ function NewSessionForm({ initialData, onCancel, onSaved }: { initialData?: Sess
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
               <input type="text" placeholder="Nama Pemain" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} />
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  placeholder="Iuran Rp" 
-                  value={formatCurrency(newPlayerAmount)} 
-                  onChange={(e) => setNewPlayerAmount(parseCurrency(e.target.value))} 
+                <input
+                  type="text"
+                  placeholder="Iuran Rp"
+                  value={formatCurrency(newPlayerAmount)}
+                  onChange={(e) => setNewPlayerAmount(parseCurrency(e.target.value))}
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setNewPlayerPaid(!newPlayerPaid)}
                   className={`btn ${newPlayerPaid ? 'badge-paid' : 'badge-unpaid'}`}
                   style={{ whiteSpace: 'nowrap', fontSize: '0.75rem' }}
